@@ -47,7 +47,18 @@ def compute_cov(a,b, threshold=None):
   mean_b=np.mean(b)
   cov=np.sum((a*mask-mean_a)*(b*mask-mean_b))/len(a*mask)
   return cov
-  
+
+def compute_charge_masks(images, image_slice,sigma_estimate=30, sigma_factor=5):
+  image_median=np.median(images[:,:,image_slice[0],image_slice[1]],axis=(2,3))
+  threshold=sigma_estimate*sigma_factor
+  mask=np.abs(images[:,:,image_slice[0],image_slice[1]]-image_median[:,:,np.newaxis,np.newaxis])<threshold
+  return mask
+
+#%%
+def subtract_pedestal(images,n_col_fits=4,n_row_fits=4):
+  if not np.ma.is_masked(images):
+    mask=compute_charge_masks(images)
+
 #%%
 def subtract_pedestal_XY(data, left_image_slice, right_image_slice, left_overscan_slice, right_overscan_slice):
   XY_overscan_right_avg=np.average(data[:,:,right_overscan_slice[0],right_overscan_slice[1]],axis=(2,3))
@@ -57,36 +68,37 @@ def subtract_pedestal_XY(data, left_image_slice, right_image_slice, left_oversca
   data[:,:,right_image_slice[0],right_image_slice[1]]-=XY_overscan_right_avg[:,:,np.newaxis,np.newaxis]
 
 #%%
-def subtract_CNS(data,left_side, right_side):
+def subtract_CNS(images,left_side, right_side):
   '''
   Data is a 4D matrix with [runs,extension,y,x]
   Note: the images should have pedestal subtracted to before doing CNS
   left_side,right_side should be a np.s_ slice that gives the left/right sides of the image
   '''
-  nextensions=data.shape[1]
-  nruns=data.shape[0]
+  nextensions=images.shape[1]
+  nruns=images.shape[0]
   threshold=30*6. #Threshold for pixel values, exclude everything above this
+  mask=compute_charge_masks(images,np.s_[:,:])
+  masked_images=np.ma.array(images,mask=np.logical_not(mask))
   for run in range(nruns):
     for extension in range(nextensions):
       a=np.zeros(nextensions)
       RHS=np.zeros(nextensions)
       LHS=np.zeros((nextensions, nextensions))
-
+      
       for i in range(nextensions):
 
-        left_image1=data[run,i,left_side[0],left_side[1]]
-        right_image=data[run,extension,right_side[0],right_side[1]]
+        left_image1=masked_images[run,i,left_side[0],left_side[1]]
+        right_image=masked_images[run,extension,right_side[0],right_side[1]]
         weights=(right_image.flatten()-np.mean(right_image))<threshold
-        RHS[i]=np.cov(left_image1.flatten()[weights],right_image.flatten()[weights])[1,0]      
+        RHS[i]=np.ma.cov(left_image1.flatten()[weights],right_image.flatten()[weights])[1,0]      
         for j in range(nextensions):
-          left_image2=data[run,j,left_side[0],left_side[1]]
-          LHS[i,j]=np.cov(left_image1.flatten(), left_image2.flatten())[1,0]
+          left_image2=masked_images[run,j,left_side[0],left_side[1]]
+          LHS[i,j]=np.ma.cov(left_image1.flatten()[weights], left_image2.flatten()[weights])[1,0]
 
       a[:]=np.dot(RHS,np.linalg.inv(LHS))
       #print(a)
       for i in range(nextensions):
-        data[run,extension,right_side[0],right_side[1]]-=data[run,i,left_side[0],left_side[1]]*a[i]
-   
+        masked_images[run,extension,right_side[0],right_side[1]]-=masked_images[run,i,left_side[0],left_side[1]]*a[i]
 #%%
 def compute_noise_single_image(image,image_slice, threshold=180):
   mask=image[image_slice[0],image_slice[1]].flatten()<threshold
@@ -106,11 +118,6 @@ def compute_noise_many_image(images,image_slice, threshold=180):
   return mus,noises
 
 #%%
-def compute_charge_masks(images, image_slice,sigma_estimate=30, sigma_factor=5):
-  image_median=np.median(images[:,:,image_slice[0],image_slice[1]],axis=(2,3))
-  threshold=sigma_estimate*sigma_factor
-  mask=np.abs(images[:,:,image_slice[0],image_slice[1]]-image_median[:,:,np.newaxis,np.newaxis])<threshold
-  return mask
 
 def compute_dark_current(images,image_slice, overscan_slice):
   image_mask=compute_charge_masks(images,np.s_[:,image_slice[1]])
@@ -141,10 +148,12 @@ if __name__=="__main__":
 
 
   #For dark current measurement, 4/4/2018 --RT
-  #run3=[3160, 3161, 4,5,6,7,8,9,10]
+#  run3=[3160, 3161, 4,5,6,7,8,9,10]
+  
   run3=[]
   run4=[x for x in range(3203,3217)]
-  run4.extend([3250,3251,3252,3253,3254,3255,3256])
+  run4.extend([x for x in range(3250,3269)])
+  run4.extend([3332])
   
   runs=[]
   runs.extend(run3)
@@ -309,7 +318,8 @@ if __name__=="__main__":
   plt.title("Dark Current by RunID")
   plt.xlabel("RunID")
   plt.ylabel("DC (ADU)")
-  plt.xticks(x,(str(y).zfill(4) for y in runs[valid_runs]))
+  plt.xticks(x,(str(y).zfill(4) for y in runs[valid_runs]),rotation=-45)
+  plt.ylim(ymin=0)
   plt.legend(lines, ["Ext 1", "Ext 2", "Ext 3", "Ext 4", "Ext 6", "Ext 11", "Ext 12"],loc='best')
   
   # plt.figure()
