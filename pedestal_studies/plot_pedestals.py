@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import os
 import sys
 import time
+import socket
 from scipy.stats import norm
 
 #TODO: change all single slice to "slices", all double slices to "slices"
@@ -67,6 +68,8 @@ def subtract_pedestal_XY(data, left_image_slice, right_image_slice, left_oversca
   data[:,:,left_image_slice[0],left_image_slice[1]]-=XY_overscan_left_avg[:,:,np.newaxis,np.newaxis]
   data[:,:,right_image_slice[0],right_image_slice[1]]-=XY_overscan_right_avg[:,:,np.newaxis,np.newaxis]
 
+  return data
+
 #%%
 def subtract_CNS(images,left_side, right_side):
   '''
@@ -89,20 +92,21 @@ def subtract_CNS(images,left_side, right_side):
 
         left_image1=masked_images[run,i,left_side[0],left_side[1]]
         right_image=masked_images[run,extension,right_side[0],right_side[1]]
-        weights=(right_image.flatten()-np.mean(right_image))<threshold
-        RHS[i]=np.ma.cov(left_image1.flatten()[weights],right_image.flatten()[weights])[1,0]      
+        weights=(right_image.flatten()-np.ma.mean(right_image))<threshold
+        RHS[i]=np.ma.cov(left_image1.flatten(),right_image.flatten())[1,0]      
         for j in range(nextensions):
           left_image2=masked_images[run,j,left_side[0],left_side[1]]
-          LHS[i,j]=np.ma.cov(left_image1.flatten()[weights], left_image2.flatten()[weights])[1,0]
+          LHS[i,j]=np.ma.cov(left_image1.flatten(), left_image2.flatten())[1,0]
 
       a[:]=np.dot(RHS,np.linalg.inv(LHS))
-      #print(a)
+      #print(a)                  
       for i in range(nextensions):
         masked_images[run,extension,right_side[0],right_side[1]]-=masked_images[run,i,left_side[0],left_side[1]]*a[i]
 #%%
 def compute_noise_single_image(image,image_slice, threshold=180):
-  mask=image[image_slice[0],image_slice[1]].flatten()<threshold
-  (mu, sigma) = norm.fit(image[image_slice[0],image_slice[1]].flatten()*mask)
+  mask=compute_charge_masks(image[np.newaxis,np.newaxis],image_slice)[0,0]
+  masked_image=np.ma.array(image[image_slice[0], image_slice[1]],mask=np.logical_not(mask))
+  (mu, sigma) = norm.fit(masked_image.compressed())
   return mu, sigma
 
 def compute_noise_many_image(images,image_slice, threshold=180):
@@ -138,6 +142,7 @@ def compute_dark_current(images,image_slice, overscan_slice):
 #%%
 
 if __name__=="__main__":
+  hostname=socket.gethostname()
   hdus=[]
   extensions=[1,2,3,4,6,11,12]
   #extensions=[1,2,11,12]
@@ -151,9 +156,10 @@ if __name__=="__main__":
 #  run3=[3160, 3161, 4,5,6,7,8,9,10]
   
   run3=[]
-  run4=[x for x in range(3203,3217)]
-  run4.extend([x for x in range(3250,3269)])
-  run4.extend([3332])
+  run4=[]
+  run4=[x for x in range(3203,3210)]
+
+  clean_loops=[3203,3250,3332] #Clean loops are done right before these images
   
   runs=[]
   runs.extend(run3)
@@ -206,8 +212,10 @@ if __name__=="__main__":
     run_numbers=run_numbers*np.ones(nruns)
   #  for run in runs:
   for idx, (run, run_number) in enumerate(zip(runs, run_numbers)):
-    directory="/run/user/1000/gvfs/sftp:host=zev.uchicago.edu,user=ryant/data/damic/snolab/raw/DAMIC_SNOLAB_RUN1/Jan2017/sci/140K/cryoOFF/30000s-IntW800-OS/1x100/run"+str(run_number)+"/"
-    #directory="data/"
+    directory="/data/damic/snolab/raw/DAMIC_SNOLAB_RUN1/Jan2017/sci/140K/cryoOFF/30000s-IntW800-OS/1x100/run"+str(run_number)+"/"
+    if "ryan" in hostname: #For running locally
+      directory="/run/user/1000/gvfs/sftp:host=zev.uchicago.edu,user=ryant" + directory
+    #TODO: change to allow for non-30000s runs
     fname=directory+"d44_snolab_Int-800_Exp-30000_"+str(run).zfill(4)+".fits.fz"
     if os.path.isfile(fname):
       
@@ -219,7 +227,9 @@ if __name__=="__main__":
       nvalid_runs+=1
   
   print("Images loaded")
+  images=images[valid_runs]
   valid_runs=np.array(valid_runs)
+  runs=runs[valid_runs]
   if len(valid_runs) <=0:
     print("error, no valid images found")
     sys.exit()
@@ -227,41 +237,41 @@ if __name__=="__main__":
   load_time=time.time()
   print("Time to load files is: " + str(load_time-start_time))
 
-  # subtract_pedestal_XY(images,left_image_slice,right_image_slice, left_overscan_slice, right_overscan_slice)
-  # pedestal_subtraction_time=time.time()
-  # print("Time to subtract pedestal is: " + str(pedestal_subtraction_time-load_time))
+  subtract_pedestal_XY(images,left_image_slice,right_image_slice, left_overscan_slice, right_overscan_slice)
+  pedestal_subtraction_time=time.time()
+  print("Time to subtract pedestal is: " + str(pedestal_subtraction_time-load_time))
 
-  # _,noise_pre=compute_noise_many_image(images,right_image_CNS_slice)
-  # print("Pre subtraction noise is: " + str(noise_pre))
+  _,noise_pre=compute_noise_many_image(images,right_image_CNS_slice)
+  print("Pre subtraction noise is: " + str(noise_pre))
   
-  # subtract_CNS(images,left_image_CNS_slice, right_image_CNS_slice)
-  # CNS_subtraction_time=time.time()
-  # print("Time to subtract CNS is: " + str(CNS_subtraction_time-pedestal_subtraction_time))
+  subtract_CNS(images,left_image_CNS_slice, right_image_CNS_slice)
+  CNS_subtraction_time=time.time()
+  print("Time to subtract CNS is: " + str(CNS_subtraction_time-pedestal_subtraction_time))
 
-  # _,noise_post=compute_noise_many_image(images,right_image_CNS_slice)
-  # print("Post subtraction noise is: " + str(noise_post))
+  _,noise_post=compute_noise_many_image(images,right_image_CNS_slice)
+  print("Post subtraction noise is: " + str(noise_post))
 
   
   #Now compute the overscans  
-  x_overscan_average_rows_ext=np.average(images[valid_runs,:,y_image_slice,x_overscan_slice],axis=(0,3))
-  y_overscan_average_rows_ext=np.average(images[valid_runs,:,y_overscan_slice,x_image_slice],axis=(0,3))
-  xy_overscan_average_rows_ext=np.average(images[valid_runs,:,y_overscan_slice,x_overscan_slice],axis=(0,3))   
-  image_average_rows_ext=np.average(images[valid_runs,:,y_image_slice,x_image_slice],axis=(0,3))
+  x_overscan_average_rows_ext=np.average(images[:,:,y_image_slice,x_overscan_slice],axis=(0,3))
+  y_overscan_average_rows_ext=np.average(images[:,:,y_overscan_slice,x_image_slice],axis=(0,3))
+  xy_overscan_average_rows_ext=np.average(images[:,:,y_overscan_slice,x_overscan_slice],axis=(0,3))   
+  image_average_rows_ext=np.average(images[:,:,y_image_slice,x_image_slice],axis=(0,3))
   
-  y_overscan_average_columns_ext=np.average(images[valid_runs,:,y_overscan_slice,x_image_slice],axis=(0,2))
-  x_overscan_average_columns_ext=np.average(images[valid_runs,:,y_image_slice,x_overscan_slice],axis=(0,2))
-  xy_overscan_average_columns_ext=np.average(images[valid_runs,:,y_overscan_slice,x_overscan_slice],axis=(0,2))
-  image_average_columns_ext=np.average(images[valid_runs,:,y_image_slice,x_image_slice],axis=(0,2))
+  y_overscan_average_columns_ext=np.average(images[:,:,y_overscan_slice,x_image_slice],axis=(0,2))
+  x_overscan_average_columns_ext=np.average(images[:,:,y_image_slice,x_overscan_slice],axis=(0,2))
+  xy_overscan_average_columns_ext=np.average(images[:,:,y_overscan_slice,x_overscan_slice],axis=(0,2))
+  image_average_columns_ext=np.average(images[:,:,y_image_slice,x_image_slice],axis=(0,2))
 
-  x_overscan_average_rows_run=np.average(images[valid_runs,:,y_image_slice,x_overscan_slice],axis=(1,3))
-  y_overscan_average_rows_run=np.average(images[valid_runs,:,y_overscan_slice,x_image_slice],axis=(1,3))
-  xy_overscan_average_rows_run=np.average(images[valid_runs,:,y_overscan_slice,x_overscan_slice],axis=(1,3))   
-  image_average_rows_run=np.average(images[valid_runs,:,y_image_slice,x_image_slice],axis=(1,3))
+  x_overscan_average_rows_run=np.average(images[:,:,y_image_slice,x_overscan_slice],axis=(1,3))
+  y_overscan_average_rows_run=np.average(images[:,:,y_overscan_slice,x_image_slice],axis=(1,3))
+  xy_overscan_average_rows_run=np.average(images[:,:,y_overscan_slice,x_overscan_slice],axis=(1,3))   
+  image_average_rows_run=np.average(images[:,:,y_image_slice,x_image_slice],axis=(1,3))
   
-  y_overscan_average_columns_run=np.average(images[valid_runs,:,y_overscan_slice,x_image_slice],axis=(1,2))
-  x_overscan_average_columns_run=np.average(images[valid_runs,:,y_image_slice,x_overscan_slice],axis=(1,2))
-  xy_overscan_average_columns_run=np.average(images[valid_runs,:,y_overscan_slice,x_overscan_slice],axis=(1,2))
-  image_average_columns_run=np.average(images[valid_runs,:,y_image_slice,x_image_slice],axis=(1,2))
+  y_overscan_average_columns_run=np.average(images[:,:,y_overscan_slice,x_image_slice],axis=(1,2))
+  x_overscan_average_columns_run=np.average(images[:,:,y_image_slice,x_overscan_slice],axis=(1,2))
+  xy_overscan_average_columns_run=np.average(images[:,:,y_overscan_slice,x_overscan_slice],axis=(1,2))
+  image_average_columns_run=np.average(images[:,:,y_image_slice,x_image_slice],axis=(1,2))
 
   #Now compute the residuals
   image_y_overscan_residual_ext=image_average_columns_ext-y_overscan_average_columns_ext
@@ -279,38 +289,38 @@ if __name__=="__main__":
   dark_current_by_run=(np.average(image_average_rows_run - np.average(y_overscan_average_rows_run,axis=1)[:,np.newaxis],axis=1)-
                        np.average(y_overscan_average_rows_run - np.average(y_overscan_average_rows_run,axis=1)[:,np.newaxis],axis=1))
 
-  dark_current_by_run_ext=compute_dark_current(images[valid_runs],right_image_DC_slice,np.s_[y_overscan_slice,x_overscan_slice])
+  dark_current_by_run_ext=compute_dark_current(images,right_image_DC_slice,np.s_[y_overscan_slice,x_overscan_slice])
   
-  plt.figure()
-  plt.plot(image_columns,np.average(y_overscan_average_columns_run,axis=0),'r',label="Y overscan")
-  plt.plot(image_columns,np.average(image_average_columns_run,axis=0),'b',label="Image")
-  plt.title("Average of overscan/image by column (all extensions)\n For runIDs "+ str(start_runID)+"-"+str(end_runID-1))
-  plt.xlabel("Column")
-  plt.ylabel("Average pixel value")
-  plt.legend(loc='best')
+  # plt.figure()
+  # plt.plot(image_columns,np.average(y_overscan_average_columns_run,axis=0),'r',label="Y overscan")
+  # plt.plot(image_columns,np.average(image_average_columns_run,axis=0),'b',label="Image")
+  # plt.title("Average of overscan/image by column (all extensions)\n For runIDs "+ str(start_runID)+"-"+str(end_runID-1))
+  # plt.xlabel("Column")
+  # plt.ylabel("Average pixel value")
+  # plt.legend(loc='best')
   
-  plt.figure()
-  plt.plot(image_rows,np.average(x_overscan_average_rows_run,axis=0),'r',label="X overscan")
-  plt.plot(image_rows,np.average(image_average_rows_run,axis=0),'b', label="Image")
-  plt.title("Average of overscan/image by row (all extensions)\n For runIDs "+ str(start_runID)+"-"+str(end_runID-1))
-  plt.xlabel("Row")
-  plt.ylabel("Average pixel values")
-  plt.legend(loc='best')
+  # plt.figure()
+  # plt.plot(image_rows,np.average(x_overscan_average_rows_run,axis=0),'r',label="X overscan")
+  # plt.plot(image_rows,np.average(image_average_rows_run,axis=0),'b', label="Image")
+  # plt.title("Average of overscan/image by row (all extensions)\n For runIDs "+ str(start_runID)+"-"+str(end_runID-1))
+  # plt.xlabel("Row")
+  # plt.ylabel("Average pixel values")
+  # plt.legend(loc='best')
 
-  plt.figure()
-  plt.plot(runs[valid_runs],dark_current_by_run,'D',label="Dark Current")
-  plt.title("Dark Current by run from runID " + str(start_runID) + " to " +str(end_runID))
-  plt.xlabel("RunID")
-  plt.ylabel("Dark Current (ADU)")
-  plt.legend(loc='best')
+  # plt.figure()
+  # plt.plot(runs,dark_current_by_run,'D',label="Dark Current")
+  # plt.title("Dark Current by run from runID " + str(start_runID) + " to " +str(end_runID))
+  # plt.xlabel("RunID")
+  # plt.ylabel("Dark Current (ADU)")
+  # plt.legend(loc='best')
   
-  plt.figure()
-  plt.plot(overscan_rows,np.average(y_overscan_average_rows_ext,axis=0),'b', label="Y overscan")
-  plt.plot(overscan_rows,np.average(xy_overscan_average_rows_ext,axis=0),'r',label="XY overscan")
-  plt.title("Average of overscan by row")
-  plt.xlabel("Row")
-  plt.ylabel("Average pixel values")
-  plt.legend(loc='best')
+  # plt.figure()
+  # plt.plot(overscan_rows,np.average(y_overscan_average_rows_ext,axis=0),'b', label="Y overscan")
+  # plt.plot(overscan_rows,np.average(xy_overscan_average_rows_ext,axis=0),'r',label="XY overscan")
+  # plt.title("Average of overscan by row")
+  # plt.xlabel("Row")
+  # plt.ylabel("Average pixel values")
+  # plt.legend(loc='best')
 
   plt.figure()
   x=range(len(valid_runs))
@@ -318,7 +328,14 @@ if __name__=="__main__":
   plt.title("Dark Current by RunID")
   plt.xlabel("RunID")
   plt.ylabel("DC (ADU)")
-  plt.xticks(x,(str(y).zfill(4) for y in runs[valid_runs]),rotation=-45)
+  plt.xticks(x,[str(y).zfill(4) for y in runs],rotation=-45)
+  for clean in clean_loops:
+    if clean in runs:
+      #Stupid bullshit hack because x[runs==clean] doesn't wanna work on Zev
+      line_x=x[np.argwhere(runs==clean)[0][0]]-.5
+      #Check if the line is interesting
+      if (line_x>0):
+        plt.axvline(line_x,color='b',linewidth=2, linestyle='dashed')
   plt.ylim(ymin=0)
   plt.legend(lines, ["Ext 1", "Ext 2", "Ext 3", "Ext 4", "Ext 6", "Ext 11", "Ext 12"],loc='best')
   
@@ -348,20 +365,20 @@ if __name__=="__main__":
   #   plt.ylabel("Average pixel values")
   #   plt.legend(loc='best')
   
-#    plt.figure()
-#    plt.plot(overscan_rows,y_overscan_average_rows_ext[i],'b', label="Y overscan")
-#    plt.plot(overscan_rows,xy_overscan_average_rows_ext[i],'r',label="XY overscan")
-#    plt.title("Average of overscan by row for extension" +str(extension))
-#    plt.xlabel("Row")
-#    plt.ylabel("Average pixel values")
-#    plt.legend(loc='best')
-#
-#    plt.figure()
-#    plt.plot(overscan_columns,x_overscan_average_columns_ext[i],'b',label="X overscan")
-#    plt.plot(overscan_columns,xy_overscan_average_columns_ext[i],'r',label="XY overscan")
-#    plt.legend(loc='best')
-#    plt.title("Average of overscan by column for extension" +str(extension))
-#    plt.xlabel("Column")
-#    plt.ylabel("Average pixel values")
-#    
+  #    plt.figure()
+  #    plt.plot(overscan_rows,y_overscan_average_rows_ext[i],'b', label="Y overscan")
+  #    plt.plot(overscan_rows,xy_overscan_average_rows_ext[i],'r',label="XY overscan")
+  #    plt.title("Average of overscan by row for extension" +str(extension))
+  #    plt.xlabel("Row")
+  #    plt.ylabel("Average pixel values")
+  #    plt.legend(loc='best')
+  #
+  #    plt.figure()
+  #    plt.plot(overscan_columns,x_overscan_average_columns_ext[i],'b',label="X overscan")
+  #    plt.plot(overscan_columns,xy_overscan_average_columns_ext[i],'r',label="XY overscan")
+  #    plt.legend(loc='best')
+  #    plt.title("Average of overscan by column for extension" +str(extension))
+  #    plt.xlabel("Column")
+  #    plt.ylabel("Average pixel values")
+  plt.show()
   
