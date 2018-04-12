@@ -68,6 +68,9 @@ def subtract_pedestal_XY(data, left_image_slice, right_image_slice, left_oversca
   data[:,:,left_image_slice[0],left_image_slice[1]]-=XY_overscan_left_avg[:,:,np.newaxis,np.newaxis]
   data[:,:,right_image_slice[0],right_image_slice[1]]-=XY_overscan_right_avg[:,:,np.newaxis,np.newaxis]
 
+  # data[:,:,left_image_slice[0],left_image_slice[1]]-=np.mean(data[:,:,left_image_slice[0],left_image_slice[1]],axis=((2,3)))[:,:,np.newaxis,np.newaxis]
+  # data[:,:,right_image_slice[0],right_image_slice[1]]-=np.mean(data[:,:,right_image_slice[0],right_image_slice[1]],axis=((2,3)))[:,:,np.newaxis,np.newaxis]
+
   return data
 
 #%%
@@ -92,13 +95,16 @@ def subtract_CNS(images,left_side, right_side):
 
         left_image1=masked_images[run,i,left_side[0],left_side[1]]
         right_image=masked_images[run,extension,right_side[0],right_side[1]]
+
         weights=(right_image.flatten()-np.ma.mean(right_image))<threshold
+
         RHS[i]=np.ma.cov(left_image1.flatten(),right_image.flatten())[1,0]      
+
         for j in range(nextensions):
           left_image2=masked_images[run,j,left_side[0],left_side[1]]
           LHS[i,j]=np.ma.cov(left_image1.flatten(), left_image2.flatten())[1,0]
 
-      a[:]=np.dot(RHS,np.linalg.inv(LHS))
+      a[:]=np.dot(np.linalg.inv(LHS),RHS)
       #print(a)                  
       for i in range(nextensions):
         masked_images[run,extension,right_side[0],right_side[1]]-=masked_images[run,i,left_side[0],left_side[1]]*a[i]
@@ -157,7 +163,7 @@ if __name__=="__main__":
   
   run3=[]
   run4=[]
-  run4=[x for x in range(3203,3210)]
+  run4=[x for x in range(3203,3204)]
 
   clean_loops=[3203,3250,3332] #Clean loops are done right before these images
   
@@ -322,22 +328,22 @@ if __name__=="__main__":
   # plt.ylabel("Average pixel values")
   # plt.legend(loc='best')
 
-  plt.figure()
-  x=range(len(valid_runs))
-  lines=plt.plot(x,dark_current_by_run_ext, "d")
-  plt.title("Dark Current by RunID")
-  plt.xlabel("RunID")
-  plt.ylabel("DC (ADU)")
-  plt.xticks(x,[str(y).zfill(4) for y in runs],rotation=-45)
-  for clean in clean_loops:
-    if clean in runs:
-      #Stupid bullshit hack because x[runs==clean] doesn't wanna work on Zev
-      line_x=x[np.argwhere(runs==clean)[0][0]]-.5
-      #Check if the line is interesting
-      if (line_x>0):
-        plt.axvline(line_x,color='b',linewidth=2, linestyle='dashed')
-  plt.ylim(ymin=0)
-  plt.legend(lines, ["Ext 1", "Ext 2", "Ext 3", "Ext 4", "Ext 6", "Ext 11", "Ext 12"],loc='best')
+  # plt.figure()
+  # x=range(len(valid_runs))
+  # lines=plt.plot(x,dark_current_by_run_ext, "d")
+  # plt.title("Dark Current by RunID")
+  # plt.xlabel("RunID")
+  # plt.ylabel("DC (ADU)")
+  # plt.xticks(x,[str(y).zfill(4) for y in runs],rotation=-45)
+  # for clean in clean_loops:
+  #   if clean in runs:
+  #     #Stupid bullshit hack because x[runs==clean] doesn't wanna work on Zev
+  #     line_x=x[np.argwhere(runs==clean)[0][0]]-.5
+  #     #Check if the line is interesting
+  #     if (line_x>0):
+  #       plt.axvline(line_x,color='b',linewidth=2, linestyle='dashed')
+  # plt.ylim(ymin=0)
+  # plt.legend(lines, ["Ext 1", "Ext 2", "Ext 3", "Ext 4", "Ext 6", "Ext 11", "Ext 12"],loc='best')
   
   # plt.figure()
   # plt.plot(overscan_columns,x_overscan_average_columns,'b',label="X overscan")
