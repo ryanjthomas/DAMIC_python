@@ -12,10 +12,14 @@ import time
 
 from scipy.stats import norm
 
-try:
-  import seaborn as sns
-except:
-  pass
+
+#Attempt at prettier graphs, but the color schema doesn't work very well (extension 1 and 12 look identical)
+# try:
+#   import seaborn as sns
+#   sns.set()
+#   sns.set_style("white")
+# except:
+#   pass
 
 #TODO: change all single slice to "slices", all double slices to "slices"
 #TODO: implements this everywhere appropriate
