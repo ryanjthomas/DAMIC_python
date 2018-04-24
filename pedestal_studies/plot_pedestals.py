@@ -179,13 +179,13 @@ if __name__=="__main__":
   run3=[]
   run4=[]
   #For dark current measurement, 4/4/2018 --RT
-  run3=[3159,3160, 3161, 4,5,6,7,8,9,10]
+#  run3=[3159,3160, 3161, 4,5,6,7,8,9,10]
   
   #run3=[3160,3161]
  #  run3.extend([x for x in range(0,11)])
 
-  run4=[x for x in range(3200,3600)]
-#  run4=[x for x in range(3453,3454)]
+#  run4=[x for x in range(3200,3600)]
+  run4=[x for x in range(3463,3464)]
 
   clean_loops=[3203,3250,3332,3417, 3453] #Clean loops are done right before these images
   crashes=[0004,3345]
@@ -397,24 +397,24 @@ if __name__=="__main__":
   plt.legend(lines,labels ,loc='best')
   
 
-  # for i, extension in enumerate(extensions):
+  for i, extension in enumerate(extensions):
     
-  #   plt.figure()
-  #   plt.plot(image_columns,y_overscan_average_columns_ext[i],'r',label="Y overscan")
-  #   plt.plot(image_columns,image_average_columns_ext[i],'b',label="Image")
-  #   #plt.plot(image_columns, image_y_overscan_residual_ext[i], 'b', label="Residual")
-  #   plt.title("Image and y_overscan by column for extension" +str(extension))
-  #   plt.xlabel("Column")
-  #   plt.ylabel("Average pixel value")
-  #   plt.legend(loc='best')
+    plt.figure()
+    plt.plot(image_columns,y_overscan_average_columns_ext[i],'r',label="Y overscan")
+    plt.plot(image_columns,image_average_columns_ext[i],'b',label="Image")
+    #plt.plot(image_columns, image_y_overscan_residual_ext[i], 'b', label="Residual")
+    plt.title("Image and y_overscan by column for extension" +str(extension))
+    plt.xlabel("Column")
+    plt.ylabel("Average pixel value")
+    plt.legend(loc='best')
    
-  #   plt.figure()
-  #   plt.plot(image_rows,x_overscan_average_rows_ext[i],'r',label="X overscan")
-  #   plt.plot(image_rows,image_average_rows_ext[i],'b', label="Image")
-  #   plt.title("Average of overscan/image by row for extension" +str(extension))
-  #   plt.xlabel("Row")
-  #   plt.ylabel("Average pixel values")
-  #   plt.legend(loc='best')
+    plt.figure()
+    plt.plot(image_rows,x_overscan_average_rows_ext[i],'r',label="X overscan")
+    plt.plot(image_rows,image_average_rows_ext[i],'b', label="Image")
+    plt.title("Average of overscan/image by row for extension" +str(extension))
+    plt.xlabel("Row")
+    plt.ylabel("Average pixel values")
+    plt.legend(loc='best')
   
   #    plt.figure()
   #    plt.plot(overscan_rows,y_overscan_average_rows_ext[i],'b', label="Y overscan")
