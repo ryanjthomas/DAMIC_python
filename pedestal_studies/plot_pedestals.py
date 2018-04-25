@@ -172,16 +172,17 @@ def compute_dark_current(images,image_slice, overscan_slice):
   '''
 
   image_mask=compute_charge_masks(images,np.s_[image_slice[0],image_slice[1]])
-  y_overscan_mask=compute_charge_masks(images,np.s_[overscan_slice[0],:])
+  y_overscan_mask=compute_charge_masks(images,np.s_[overscan_slice[0],image_slice[1]])
   x_overscan_mask=compute_charge_masks(images,np.s_[:,overscan_slice[1]])
 
   #Our mask has unmasked pixels "true", masked ones "false", numpy masks are the reverse
   image_masked=np.ma.array(images[:,:,image_slice[0],image_slice[1]],mask=np.logical_not(image_mask))
-  y_overscan_masked=np.ma.array(images[:,:,overscan_slice[0],:],mask=np.logical_not(y_overscan_mask))
+  y_overscan_masked=np.ma.array(images[:,:,overscan_slice[0],image_slice[1]],mask=np.logical_not(y_overscan_mask))
   x_overscan_masked=np.ma.array(images[:,:,:,overscan_slice[1]],mask=np.logical_not(x_overscan_mask))
   
   image_averages_row=np.ma.average(image_masked,axis=3)
   x_overscan_averages_row=np.ma.average(x_overscan_masked,axis=3)  
+  y_overscan_averages_row=np.ma.average(y_overscan_masked,axis=3)  
 
   image_averages_row-=x_overscan_averages_row[:,:,image_slice[0]]
   y_overscan_averages_row-=x_overscan_averages_row[:,:,overscan_slice[0]]
@@ -207,12 +208,10 @@ if __name__=="__main__":
   run3=[]
   run4=[]
   #For dark current measurement, 4/4/2018 --RT
-  #run3=[3159,3160, 3161, 4,5,6,7,8,9,10]
-  
-  run3=[3160,3161]
- #  run3.extend([x for x in range(0,11)])
+  run3=[3159,3160, 3161, 4,5,6,7,8,9,10]
+  #run3=[3160,3161]
 
-  run4=[x for x in range(3463,3464)]
+  run4=[x for x in range(3200,3800)]
   #  run4=[x for x in range(3453,3454)]
 
   clean_loops=[3203,3250,3332,3417, 3453] #Clean loops are done right before these images
@@ -294,19 +293,19 @@ if __name__=="__main__":
   load_time=time.time()
   print("Time to load files is: " + str(load_time-start_time))
 
-  subtract_pedestal_XY(images,left_image_slice,right_image_slice, left_overscan_slice, right_overscan_slice)
-  pedestal_subtraction_time=time.time()
-  print("Time to subtract pedestal is: " + str(pedestal_subtraction_time-load_time))
+  # subtract_pedestal_XY(images,left_image_slice,right_image_slice, left_overscan_slice, right_overscan_slice)
+  # pedestal_subtraction_time=time.time()
+  # print("Time to subtract pedestal is: " + str(pedestal_subtraction_time-load_time))
 
-  _,noise_pre=compute_noise_many_image(images,right_image_CNS_slice)
-  print("Pre subtraction noise is: " + str(noise_pre))
+  # _,noise_pre=compute_noise_many_image(images,right_image_CNS_slice)
+  # print("Pre subtraction noise is: " + str(noise_pre))
   
-  subtract_CNS(images,left_image_CNS_slice, right_image_CNS_slice)
-  CNS_subtraction_time=time.time()
-  print("Time to subtract CNS is: " + str(CNS_subtraction_time-pedestal_subtraction_time))
+  # subtract_CNS(images,left_image_CNS_slice, right_image_CNS_slice)
+  # CNS_subtraction_time=time.time()
+  # print("Time to subtract CNS is: " + str(CNS_subtraction_time-pedestal_subtraction_time))
 
-  _,noise_post=compute_noise_many_image(images,right_image_CNS_slice)
-  print("Post subtraction noise is: " + str(noise_post))
+  # _,noise_post=compute_noise_many_image(images,right_image_CNS_slice)
+  # print("Post subtraction noise is: " + str(noise_post))
 
 
   masked_images=np.ma.array(images,mask=np.logical_not(compute_charge_masks(images)))
@@ -394,60 +393,60 @@ if __name__=="__main__":
 
   ##--------------------Dark Current Plotting-----------------------##
 
-  # plt.figure()
-  # x=range(len(valid_runs))
-  # lines=plt.plot(x,dark_current_by_run_ext, "d")
-  # plt.title("Dark Current by RunID")
-  # plt.xlabel("RunID")
-  # plt.ylabel("DC (ADU)")
-  # plt.xticks(x,[str(y).zfill(4) for y in runs],rotation=-60)
-  # labels=["Ext 1", "Ext 2", "Ext 3", "Ext 4", "Ext 6", "Ext 11", "Ext 12"]
-  # for clean in clean_loops:
-  #   if clean in runs:
-  #     #Stupid bullshit hack because x[runs==clean] doesn't wanna work on Zev
-  #     line_x=x[np.argwhere(runs==clean)[0][0]]-.5
-  #     #Check if the line is interesting
-  #     if (line_x>0):
-  #       line=plt.axvline(line_x,color='b',linewidth=2, linestyle='dashed')
-  #       #Labeling for the vertical line (only add one)
-  #       if "Clean Loop" not in labels:
-  #         lines.append(line)
-  #         labels.append("Clean Loop")
-  # for crash in crashes:
-  #   if crash in runs:
-  #     line_x=x[np.argwhere(runs==crash)[0][0]]-.5
-  #     line=plt.axvline(line_x,color='r',linewidth=2, linestyle='dashed')
-  #     if "Crash" not in labels:
-  #       lines.append(line)
-  #       labels.append("Crash")
-  # #Cooldown run
-  # if 3337 in runs:
-  #   line_x=x[np.argwhere(runs==3337)[0][0]]-.5
-  #   line=plt.axvline(line_x,color='g',linewidth=2, linestyle='dashed')
-  #   lines.append(line)
-  #   labels.append("Cooldown")
-  # plt.ylim(ymin=0)
-  # plt.legend(lines,labels ,loc='best')
+  plt.figure()
+  x=range(len(valid_runs))
+  lines=plt.plot(x,dark_current_by_run_ext, "d")
+  plt.title("Dark Current by RunID")
+  plt.xlabel("RunID")
+  plt.ylabel("DC (ADU)")
+  plt.xticks(x,[str(y).zfill(4) for y in runs],rotation=-60)
+  labels=["Ext 1", "Ext 2", "Ext 3", "Ext 4", "Ext 6", "Ext 11", "Ext 12"]
+  for clean in clean_loops:
+    if clean in runs:
+      #Stupid bullshit hack because x[runs==clean] doesn't wanna work on Zev
+      line_x=x[np.argwhere(runs==clean)[0][0]]-.5
+      #Check if the line is interesting
+      if (line_x>0):
+        line=plt.axvline(line_x,color='b',linewidth=2, linestyle='dashed')
+        #Labeling for the vertical line (only add one)
+        if "Clean Loop" not in labels:
+          lines.append(line)
+          labels.append("Clean Loop")
+  for crash in crashes:
+    if crash in runs:
+      line_x=x[np.argwhere(runs==crash)[0][0]]-.5
+      line=plt.axvline(line_x,color='r',linewidth=2, linestyle='dashed')
+      if "Crash" not in labels:
+        lines.append(line)
+        labels.append("Crash")
+  #Cooldown run
+  if 3337 in runs:
+    line_x=x[np.argwhere(runs==3337)[0][0]]-.5
+    line=plt.axvline(line_x,color='g',linewidth=2, linestyle='dashed')
+    lines.append(line)
+    labels.append("Cooldown")
+  plt.ylim(ymin=0)
+  plt.legend(lines,labels ,loc='best')
   
 
-  for i, extension in enumerate(extensions):
+  # for i, extension in enumerate(extensions):
     
-    plt.figure()
-    plt.plot(image_columns,y_overscan_average_columns_ext[i],'r',label="Y overscan")
-    plt.plot(image_columns,image_average_columns_ext[i],'b',label="Image")
-    #plt.plot(image_columns, image_y_overscan_residual_ext[i], 'b', label="Residual")
-    plt.title("Image and y_overscan by column for extension" +str(extension))
-    plt.xlabel("Column")
-    plt.ylabel("Average pixel value")
-    plt.legend(loc='best')
+  #   plt.figure()
+  #   plt.plot(image_columns,y_overscan_average_columns_ext[i],'r',label="Y overscan")
+  #   plt.plot(image_columns,image_average_columns_ext[i],'b',label="Image")
+  #   #plt.plot(image_columns, image_y_overscan_residual_ext[i], 'b', label="Residual")
+  #   plt.title("Image and y_overscan by column for extension" +str(extension))
+  #   plt.xlabel("Column")
+  #   plt.ylabel("Average pixel value")
+  #   plt.legend(loc='best')
    
-    plt.figure()
-    plt.plot(image_rows,x_overscan_average_rows_ext[i],'r',label="X overscan")
-    plt.plot(image_rows,image_average_rows_ext[i],'b', label="Image")
-    plt.title("Average of overscan/image by row for extension" +str(extension))
-    plt.xlabel("Row")
-    plt.ylabel("Average pixel values")
-    plt.legend(loc='best')
+  #   plt.figure()
+  #   plt.plot(image_rows,x_overscan_average_rows_ext[i],'r',label="X overscan")
+  #   plt.plot(image_rows,image_average_rows_ext[i],'b', label="Image")
+  #   plt.title("Average of overscan/image by row for extension" +str(extension))
+  #   plt.xlabel("Row")
+  #   plt.ylabel("Average pixel values")
+  #   plt.legend(loc='best')
   
   #    plt.figure()
   #    plt.plot(overscan_rows,y_overscan_average_rows_ext[i],'b', label="Y overscan")
