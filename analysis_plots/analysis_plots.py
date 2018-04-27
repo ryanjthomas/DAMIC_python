@@ -1,19 +1,46 @@
 #!/usr/bin/python
 
+
+#########################################################################
+# Simple scipt to take a raw 1x100 .fits file from DAMIC-100 and output #
+# a) the dark current (estimated from the difference between average    #
+# image pixel values and the average of the overscan region) and b) a   #
+# PDF of the average of the image and overscan, both by row and by      #
+# column                                                                #
+#########################################################################
+
+
 import numpy as np
 import sys
 import re
 import os
+import subprocess
+from time import gmtime, strftime
 from astropy.io import fits
 
 import matplotlib.pyplot as plt
 import matplotlib.backends.backend_pdf as be_pdf
 
-
-usage='''
-Usage: analysis_plots.py <infile> <outdir>
-where infile is the raw .fits file, and outdir is the directory to dump the PDF file to
+usage='''Usage: analysis_plots.py <infile> <outdir> [<database_script>]
+<infile>        : the raw .fits file
+<outdir>        : the directory to dump the PDF file to
+[<database_script>] : the location of the sendMonitInflux.py file to send dark current measurement to monitoring site
 '''
+
+send_to_database=False
+#Constants that define image locations
+#Should be moved into separate file?
+x_overscan_slice=slice(8389,8538)
+y_overscan_slice=slice(44,192)
+
+y_image_slice=slice(2,43)
+x_image_slice=slice(4273,8389)
+
+right_overscan_slice=np.s_[y_image_slice,x_overscan_slice]
+
+x_crop_CNS=400
+right_image_DC_slice=np.s_[y_image_slice,4273+x_crop_CNS:8388-x_crop_CNS]
+
 
 def compute_charge_masks(images, image_slice=None,sigma_estimate=30, sigma_factor=5):
   '''
@@ -64,22 +91,11 @@ def compute_dark_current(images,image_slice, overscan_slice):
 
 
 if __name__=="__main__":
+
   if len(sys.argv) < 3:
     print(usage)
     sys.exit(1)
 
-  #Constants that define image locations
-  #Should be moved into separate file?
-  x_overscan_slice=slice(8389,8538)
-  y_overscan_slice=slice(44,192)
-
-  y_image_slice=slice(2,43)
-  x_image_slice=slice(4273,8389)
-
-  right_overscan_slice=np.s_[y_image_slice,x_overscan_slice]
-  
-  x_crop_CNS=400
-  right_image_DC_slice=np.s_[y_image_slice,4273+x_crop_CNS:8388-x_crop_CNS]
     
   hdus=[]
   #Valid extensions
@@ -110,7 +126,8 @@ if __name__=="__main__":
     print("Warning: runID not found in header, extracting from file name...")
     #Hacky but works (loads the file name in reverse, looks for 4 digits, then reverses those again to get the last group of four digits in the file name which should be the runID)
     runID=re.search("[0-9]{4}",fname[::-1]).group[::-1] 
-
+    
+  image_time=strftime("%Y-%m-%dT%H:%M:%SZ", gmtime(hdus[0][0].header['EXPSTOP']))
     
   charge_mask=np.zeros(images.shape, dtype=bool)
   #Only bother creating the mask for the image region, overscans rarely show charge
@@ -167,6 +184,13 @@ if __name__=="__main__":
     plt.ylim(ymin=ymin-50,ymax=ymax+100)
     plt.legend(loc='best')
     pdf.savefig(fig)
-    
-  
+      
   pdf.close()
+
+  if send_to_database:
+    script=sys.argv[3]
+    if not os.path.isfile(script):
+      print("Error, database script not found")
+    else:
+      for i,extension in extensions:
+        subprocess.call([script, 'snolab', 'dark current', dark_current_by_run_ext[0][i],'ext', extension])
