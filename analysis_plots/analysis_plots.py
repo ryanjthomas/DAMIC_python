@@ -92,8 +92,6 @@ if __name__=="__main__":
   runs.append(fname)
   out_directory=sys.argv[2]
 
-  #Hacky but works (loads the file name in reverse, looks for 4 digits, then reverses those again to get the last group of four digits in the file name which should be the runID)
-  runID=re.search("[0-9]{4}",fname[::-1]).group[::-1] 
   
   for run_number, fname in enumerate(runs):
     if not os.path.isfile(fname):
@@ -105,7 +103,14 @@ if __name__=="__main__":
       #Read the data from the HDU
       images[run_number,i,:,:]=hdus[run_number][extension].data
 
+  try:
+    runID=int(hdus[0][0].header['RUNID'])
+  except:
+    print("Warning: runID not found in header, extracting from file name...")
+    #Hacky but works (loads the file name in reverse, looks for 4 digits, then reverses those again to get the last group of four digits in the file name which should be the runID)
+    runID=re.search("[0-9]{4}",fname[::-1]).group[::-1] 
 
+    
   charge_mask=np.zeros(images.shape, dtype=bool)
   #Only bother creating the mask for the image region, overscans rarely show charge
   charge_mask[:,:,y_image_slice,x_image_slice]=np.logical_not(compute_charge_masks(images,(y_image_slice,x_image_slice)))
