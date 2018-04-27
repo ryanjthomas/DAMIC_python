@@ -3,6 +3,7 @@
 import numpy as np
 import sys
 import re
+import os
 from astropy.io import fits
 
 import matplotlib.pyplot as plt
@@ -40,16 +41,17 @@ def compute_dark_current(images,image_slice, overscan_slice):
   '''
 
   image_mask=compute_charge_masks(images,np.s_[image_slice[0],image_slice[1]])
-  y_overscan_mask=compute_charge_masks(images,np.s_[overscan_slice[0],:])
+  y_overscan_mask=compute_charge_masks(images,np.s_[overscan_slice[0],image_slice[1]])
   x_overscan_mask=compute_charge_masks(images,np.s_[:,overscan_slice[1]])
 
   #Our mask has unmasked pixels "true", masked ones "false", numpy masks are the reverse
   image_masked=np.ma.array(images[:,:,image_slice[0],image_slice[1]],mask=np.logical_not(image_mask))
-  y_overscan_masked=np.ma.array(images[:,:,overscan_slice[0],:],mask=np.logical_not(y_overscan_mask))
+  y_overscan_masked=np.ma.array(images[:,:,overscan_slice[0],image_slice[1]],mask=np.logical_not(y_overscan_mask))
   x_overscan_masked=np.ma.array(images[:,:,:,overscan_slice[1]],mask=np.logical_not(x_overscan_mask))
   
   image_averages_row=np.ma.average(image_masked,axis=3)
   x_overscan_averages_row=np.ma.average(x_overscan_masked,axis=3)  
+  y_overscan_averages_row=np.ma.average(y_overscan_masked,axis=3)  
 
   image_averages_row-=x_overscan_averages_row[:,:,image_slice[0]]
   y_overscan_averages_row-=x_overscan_averages_row[:,:,overscan_slice[0]]
@@ -91,7 +93,6 @@ if __name__=="__main__":
   runs=[]
   runs.append(fname)
   out_directory=sys.argv[2]
-
   
   for run_number, fname in enumerate(runs):
     if not os.path.isfile(fname):
@@ -117,14 +118,14 @@ if __name__=="__main__":
   masked_images=np.ma.array(images,mask=charge_mask)
   #Computes dark current by run and by extension
   dark_current_by_run_ext=compute_dark_current(images,right_image_DC_slice,np.s_[y_overscan_slice,x_overscan_slice])
-  
+  print(dark_current_by_run_ext)
   #Averages by row
-  x_overscan_average_rows_ext=np.ma.averages(masked_images[:,:,y_image_slice,x_overscan_slice],axis=(0,3))
-  image_average_rows_ext=np.ma.averages(masked_images[:,:,y_image_slice,x_image_slice],axis=(0,3))
+  x_overscan_average_rows_ext=np.ma.average(images[:,:,y_image_slice,x_overscan_slice],axis=(0,3))
+  image_average_rows_ext=np.ma.average(images[:,:,y_image_slice,right_image_DC_slice[1]],axis=(0,3))
 
   #Averages by column
-  y_overscan_average_columns_ext=np.ma.averages(masked_images[:,:,y_overscan_slice,x_image_slice],axis=(0,2))
-  image_average_columns_ext=np.ma.averages(masked_images[:,:,y_image_slice,x_image_slice],axis=(0,2))
+  y_overscan_average_columns_ext=np.ma.average(images[:,:,y_overscan_slice,x_image_slice],axis=(0,2))
+  image_average_columns_ext=np.ma.average(images[:,:,y_image_slice,x_image_slice],axis=(0,2))
 
   #Labels for plotting
   temp=np.arange(1,9000)
@@ -136,25 +137,36 @@ if __name__=="__main__":
   plt.ioff()
   
   figures=[]
-  pdf = matplotlib.backends.backend_pdf.PdfPages(out_directory + "plots_"+str(runID)+".pdf")
+  outfile=out_directory + "plots_"+str(runID)+".pdf"
+  pdf = be_pdf.PdfPages(out_directory + "/plots_"+str(runID)+".pdf")
+
   for i, extension in enumerate(extensions):
     
     fig=plt.figure()
     plt.plot(image_columns,y_overscan_average_columns_ext[i],'r',label="Y overscan")
     plt.plot(image_columns,image_average_columns_ext[i],'b',label="Image")
     #plt.plot(image_columns, image_y_overscan_residual_ext[i], 'b', label="Residual")
-    plt.title("Image and y_overscan by column for extension" +str(extension) " for runID " + str(runID))
+    plt.title("Image and y_overscan by column for extension" +str(extension)+ " for runID " + str(runID))
     plt.xlabel("Column")
     plt.ylabel("Average pixel value")
+    #Set range to a resonable value to exclude most charge
+    ymax=max(np.percentile(y_overscan_average_columns_ext[i],90),np.percentile(image_average_columns_ext[i],90))
+    ymin=min(np.percentile(y_overscan_average_columns_ext[i],5), np.percentile(image_average_columns_ext[i],5))
+    plt.ylim(ymin=ymin-50,ymax=ymax+100)    
     plt.legend(loc='best')
-    plt.savefig(fig)
+    pdf.savefig(fig)
     
     fig=plt.figure()
     plt.plot(image_rows,x_overscan_average_rows_ext[i],'r',label="X overscan")
     plt.plot(image_rows,image_average_rows_ext[i],'b', label="Image")
-    plt.title("Average of overscan/image by row for extension" +str(extension) " for runID " + str(runID))
+    plt.title("Average of overscan/image by row for extension" +str(extension)+ " for runID " + str(runID))
     plt.xlabel("Row")
     plt.ylabel("Average pixel values")
+    ymax=max(np.percentile(x_overscan_average_rows_ext[i],90), np.percentile(image_average_rows_ext[i],90))
+    ymin=min(np.percentile(x_overscan_average_rows_ext[i],5), np.percentile(image_average_rows_ext[i],5))
+    plt.ylim(ymin=ymin-50,ymax=ymax+100)
     plt.legend(loc='best')
-    plt.savefig(fig)
+    pdf.savefig(fig)
     
+  
+  pdf.close()
