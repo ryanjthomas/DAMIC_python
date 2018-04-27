@@ -1,3 +1,4 @@
+#!/bin/python2.7
 import sys
 import datetime
 from influxdb import client as influxdb
@@ -25,9 +26,11 @@ value = float(sys.argv[3])
 client = influxdb.InfluxDBClient(influxServer, 8086, "root", "root", dbName)
 tag      = ""
 tagValue = ""
-if len(sys.argv) == 6:
+if len(sys.argv) >= 6:
 	tag = sys.argv[4]
 	tagValue = sys.argv[5]
+if len(sys.argv) >=7:
+  currTime=sys.argv[6]
 json_body = [
 {
 "measurement": measurementName,
