@@ -28,6 +28,7 @@ usage='''Usage: analysis_plots.py <infile> <outdir> [<database_script>]
 '''
 
 send_to_database=False
+send_to_wiki=False
 #Constants that define image locations
 #Should be moved into separate file?
 x_overscan_slice=slice(8389,8538)
@@ -106,6 +107,14 @@ if __name__=="__main__":
   images=np.zeros(shape=(nruns,len(extensions),193,8544))
 
   fname=sys.argv[1]
+<<<<<<< HEAD
+=======
+  #While we're at it parse the path to the file
+  fpaths=os.path.normpath(fname).split(os.path.sep)
+  fpaths.reverse()
+  #This assumes we follow the normal naming conventions
+
+>>>>>>> 62928cb5c087c4cb1ef52285b1f8156f550930f6
   runs=[]
   runs.append(fname)
   out_directory=sys.argv[2]
@@ -154,8 +163,13 @@ if __name__=="__main__":
   plt.ioff()
   
   figures=[]
+<<<<<<< HEAD
   outfile=out_directory + "plots_"+str(runID)+".pdf"
   pdf = be_pdf.PdfPages(out_directory + "/plots_"+str(runID)+".pdf")
+=======
+  outfname=out_directory + "/plots_"+str(runID)+".pdf"
+  pdf = be_pdf.PdfPages(outfname)
+>>>>>>> 62928cb5c087c4cb1ef52285b1f8156f550930f6
 
   for i, extension in enumerate(extensions):
     
@@ -194,3 +208,9 @@ if __name__=="__main__":
     else:
       for i,extension in extensions:
         subprocess.call([script, 'snolab', 'dark current', dark_current_by_run_ext[0][i],'ext', extension])
+<<<<<<< HEAD
+=======
+
+  if send_to_wiki:
+    pass
+>>>>>>> 62928cb5c087c4cb1ef52285b1f8156f550930f6
