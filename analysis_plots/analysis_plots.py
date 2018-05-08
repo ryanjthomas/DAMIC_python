@@ -9,21 +9,32 @@
 # column                                                                #
 #########################################################################
 
+from __future__ import print_function
 
 import numpy as np
 import sys
 import re
 import os
 import subprocess
+import argparse
 from time import gmtime, strftime
 from astropy.io import fits
 
+import matplotlib
+matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 import matplotlib.backends.backend_pdf as be_pdf
 
+
+
+def eprint(*args, **kwargs):
+  #Print to stderr
+  print(*args, file=sys.stderr, **kwargs)
+
 usage='''Usage: analysis_plots.py <infile> <outdir> [<database_script>]
-<infile>        : the raw .fits file
-<outdir>        : the directory to dump the PDF file to
+<infile>            : the raw .fits or .fits.fz file
+[<outdir>]          : the directory to dump the PDF file to. Can be an absolute directory, or the name of a directory in the same
+                      directory as the raw image file. If not specified, will attempt to write to a folder named "pdfs" inside the image folder
 [<database_script>] : the location of the sendMonitInflux.py file to send dark current measurement to monitoring site
 '''
 
@@ -92,11 +103,30 @@ def compute_dark_current(images,image_slice, overscan_slice):
 
 
 if __name__=="__main__":
+  parser = argparse.ArgumentParser(description="Scipt to generate some basic statistics from DAMIC100 images. Note: currently only works on 1x100 images.")
+  
+  parser.add_argument('in_file', type=str, help="The raw .fits or .fits.fz file. Should be an absolute path")
+  parser.add_argument('out_dir', type=str, nargs="?", default="pdfs", help='The directory to dump the PDF file to. Can be an absolute directory, or the name of a directory in the same directory as the raw image file. If not specified, will attempt to write to a folder named "pdfs" inside the image folder)')
+  parser.add_argument('-d', '--dc_script', type=str,help="The location of the sendMonitInflux.py file to send dark current measurement to monitoring site")
+  parser.add_argument('-w', '--wiki_script', type=str, help="The location of the script to send the PDFs to a wiki")
 
-  if len(sys.argv) < 3:
-    print(usage)
+  args=parser.parse_args()
+  
+  fname=args.in_file
+
+  #If they passed in a directory, use that
+  if os.path.isdir(args.out_dir):
+    out_directory=args.out_dir     
+  else:
+    #Otherwise assume it's a prefix directory inside the image folder
+    out_directory=os.path.dirname(fname)
+    out_directory+="/"+args.out_dir
+  if not os.path.isdir(out_directory):
+    eprint("Error, directory for saving PDFs not found, exiting...")
     sys.exit(1)
+    
 
+    
     
   hdus=[]
   #Valid extensions
@@ -106,22 +136,18 @@ if __name__=="__main__":
   #Note: "run" here means a single image
   images=np.zeros(shape=(nruns,len(extensions),193,8544))
 
-  fname=sys.argv[1]
-<<<<<<< HEAD
-=======
   #While we're at it parse the path to the file
   fpaths=os.path.normpath(fname).split(os.path.sep)
   fpaths.reverse()
   #This assumes we follow the normal naming conventions
 
->>>>>>> 62928cb5c087c4cb1ef52285b1f8156f550930f6
   runs=[]
   runs.append(fname)
-  out_directory=sys.argv[2]
+
   
   for run_number, fname in enumerate(runs):
     if not os.path.isfile(fname):
-      print("Error, need to pass in a valid file name")
+      eprint("Error, need to pass in a valid file name")
       sys.exit(2)
 
     hdus.append(fits.open(fname,memmap=True))
@@ -163,13 +189,8 @@ if __name__=="__main__":
   plt.ioff()
   
   figures=[]
-<<<<<<< HEAD
-  outfile=out_directory + "plots_"+str(runID)+".pdf"
-  pdf = be_pdf.PdfPages(out_directory + "/plots_"+str(runID)+".pdf")
-=======
   outfname=out_directory + "/plots_"+str(runID)+".pdf"
   pdf = be_pdf.PdfPages(outfname)
->>>>>>> 62928cb5c087c4cb1ef52285b1f8156f550930f6
 
   for i, extension in enumerate(extensions):
     
@@ -204,13 +225,9 @@ if __name__=="__main__":
   if send_to_database:
     script=sys.argv[3]
     if not os.path.isfile(script):
-      print("Error, database script not found")
+      eprint("Error, database script not found")
     else:
       for i,extension in extensions:
         subprocess.call([script, 'snolab', 'dark current', dark_current_by_run_ext[0][i],'ext', extension])
-<<<<<<< HEAD
-=======
-
   if send_to_wiki:
     pass
->>>>>>> 62928cb5c087c4cb1ef52285b1f8156f550930f6
