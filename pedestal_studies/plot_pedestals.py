@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/ipython -i
 
 import numpy as np
 from astropy.io import fits
@@ -212,19 +212,23 @@ if __name__=="__main__":
   #run3=[3160,3161]
 
   run4=[x for x in range(3200,3800)]
-  #  run4=[x for x in range(3453,3454)]
-
+  run5=[x for x in range(3500,3800)]
+  
   clean_loops=[3203,3250,3332,3417, 3453] #Clean loops are done right before these images
   crashes=[0004,3345]
+  cooldowns=[3337]
+  led_exposures=[3536]
   
   runs=[]
   runs.extend(run3)
   runs.extend(run4)
+  runs.extend(run5)
   runs=np.array(runs)
   
   run_numbers=[]
   run_numbers.extend(3*np.ones(len(run3),dtype=int))
   run_numbers.extend(4*np.ones(len(run4),dtype=int))
+  run_numbers.extend(5*np.ones(len(run5),dtype=int))
   run_numbers=np.array(run_numbers)
   
   nruns=len(runs)
@@ -268,7 +272,10 @@ if __name__=="__main__":
     run_numbers=run_numbers*np.ones(nruns)
   #  for run in runs:
   for idx, (run, run_number) in enumerate(zip(runs, run_numbers)):
-    directory="/data/damic/snolab/raw/DAMIC_SNOLAB_RUN1/Jan2017/sci/140K/cryoOFF/30000s-IntW800-OS/1x100/run"+str(run_number)+"/"
+    if run_number<5:
+      directory="/data/damic/snolab/raw/DAMIC_SNOLAB_RUN1/Jan2017/sci/140K/cryoOFF/30000s-IntW800-OS/1x100/run"+str(run_number)+"/"
+    elif run_number==5:
+      directory="/data/damic/snolab/raw/DAMIC_SNOLAB_RUN1/Jan2017/sci/135K/cryoOFF/30000s-IntW800-OS/1x100/run"+str(run_number)+"/"
     if "ryan" in hostname: #For running locally
       directory="/run/user/1000/gvfs/sftp:host=zev.uchicago.edu,user=ryant" + directory
     #TODO: change to allow for non-30000s runs
@@ -412,6 +419,7 @@ if __name__=="__main__":
         if "Clean Loop" not in labels:
           lines.append(line)
           labels.append("Clean Loop")
+
   for crash in crashes:
     if crash in runs:
       line_x=x[np.argwhere(runs==crash)[0][0]]-.5
@@ -419,16 +427,36 @@ if __name__=="__main__":
       if "Crash" not in labels:
         lines.append(line)
         labels.append("Crash")
+
   #Cooldown run
-  if 3337 in runs:
-    line_x=x[np.argwhere(runs==3337)[0][0]]-.5
-    line=plt.axvline(line_x,color='g',linewidth=2, linestyle='dashed')
-    lines.append(line)
-    labels.append("Cooldown")
+  for cooldown in cooldowns:
+    if cooldown in runs:
+      line_x=x[np.argwhere(runs==cooldown)[0][0]]-.5
+      line=plt.axvline(line_x,color='g',linewidth=2, linestyle='dashed')
+      if "Cooldown" not in labels:
+        lines.append(line)
+        labels.append("Cooldown")
+  # if 3337 in runs:
+  #   line_x=x[np.argwhere(runs==3337)[0][0]]-.5
+  #   line=plt.axvline(line_x,color='g',linewidth=2, linestyle='dashed')
+  #   lines.append(line)
+  #   labels.append("Cooldown")
+  for led_exposure in led_exposures:
+    if led_exposure in runs:
+      line_x=x[np.argwhere(runs==led_exposure)[0][0]]-.5
+      line=plt.axvline(line_x,color='m',linewidth=2, linestyle='dashed')
+      if "LED Exposure "not in labels:
+        lines.append(line)
+        labels.append("LED Exposure")
+
   plt.ylim(ymin=0)
+  plt.yscale('log')
   plt.legend(lines,labels ,loc='best')
   
-
+  #Show labels on both sides
+  ax=plt.gca()
+  ax.tick_params(labelright=True)
+  
   # for i, extension in enumerate(extensions):
     
   #   plt.figure()
