@@ -38,7 +38,7 @@ usage='''Usage: analysis_plots.py <infile> <outdir> [<database_script>]
 [<database_script>] : the location of the sendMonitInflux.py file to send dark current measurement to monitoring site
 '''
 
-send_to_database=False
+send_to_database=True
 send_to_wiki=False
 #Constants that define image locations
 #Should be moved into separate file?
@@ -107,12 +107,13 @@ if __name__=="__main__":
   
   parser.add_argument('in_file', type=str, help="The raw .fits or .fits.fz file. Should be an absolute path")
   parser.add_argument('out_dir', type=str, nargs="?", default="pdfs", help='The directory to dump the PDF file to. Can be an absolute directory, or the name of a directory in the same directory as the raw image file. If not specified, will attempt to write to a folder named "pdfs" inside the image folder)')
-  parser.add_argument('-d', '--dc_script', type=str,help="The location of the sendMonitInflux.py file to send dark current measurement to monitoring site")
+  parser.add_argument('-d', '--influx_script', type=str,help="The location of the sendMonitInflux.py file to send dark current measurement to monitoring site")
   parser.add_argument('-w', '--wiki_script', type=str, help="The location of the script to send the PDFs to a wiki")
 
   args=parser.parse_args()
   
   fname=args.in_file
+  influx_script=args.influx_script
 
   #If they passed in a directory, use that
   if os.path.isdir(args.out_dir):
@@ -222,12 +223,11 @@ if __name__=="__main__":
       
   pdf.close()
 
-  if send_to_database:
-    script=sys.argv[3]
-    if not os.path.isfile(script):
+  if send_to_database and influx_script is not None:
+    if not os.path.isfile(influx_script):
       eprint("Error, database script not found")
     else:
-      for i,extension in extensions:
-        subprocess.call([script, 'snolab', 'dark current', dark_current_by_run_ext[0][i],'ext', extension])
+      for i,extension in enumerate(extensions):
+        subprocess.call([influx_script, 'snolab', 'darkCurrent', str(dark_current_by_run_ext[0][i]),'ext', str(extension), str(image_time)])
   if send_to_wiki:
     pass

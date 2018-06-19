@@ -212,12 +212,13 @@ if __name__=="__main__":
   #run3=[3160,3161]
 
   run4=[x for x in range(3200,3800)]
-  run5=[x for x in range(3500,3800)]
+  run5=[x for x in range(3200,3800)]
   
   clean_loops=[3203,3250,3332,3417, 3453] #Clean loops are done right before these images
   crashes=[0004,3345]
   cooldowns=[3337]
   led_exposures=[3536]
+  warmups=[3637,3654]
   
   runs=[]
   runs.extend(run3)
@@ -359,21 +360,21 @@ if __name__=="__main__":
 
   dark_current_by_run_ext=compute_dark_current(images,right_image_DC_slice,np.s_[y_overscan_slice,x_overscan_slice])
   
-  plt.figure()
-  plt.plot(image_columns,np.ma.average(masked_y_overscan_average_columns_run,axis=0),'r',label="Y overscan")
-  plt.plot(image_columns,np.ma.average(masked_image_average_columns_run,axis=0),'b',label="Image")
-  plt.title("Average of overscan/image by column (all extensions)\n For runIDs "+ str(start_runID)+"-"+str(end_runID-1))
-  plt.xlabel("Column")
-  plt.ylabel("Average pixel value")
-  plt.legend(loc='best')
+  # plt.figure()
+  # plt.plot(image_columns,np.ma.average(masked_y_overscan_average_columns_run,axis=0),'r',label="Y overscan")
+  # plt.plot(image_columns,np.ma.average(masked_image_average_columns_run,axis=0),'b',label="Image")
+  # plt.title("Average of overscan/image by column (all extensions)\n For runIDs "+ str(start_runID)+"-"+str(end_runID-1))
+  # plt.xlabel("Column")
+  # plt.ylabel("Average pixel value")
+  # plt.legend(loc='best')
   
-  plt.figure()
-  plt.plot(image_rows,np.average(x_overscan_average_rows_run,axis=0),'r',label="X overscan")
-  plt.plot(image_rows,np.average(image_average_rows_run,axis=0),'b', label="Image")
-  plt.title("Average of overscan/image by row (all extensions)\n For runIDs "+ str(start_runID)+"-"+str(end_runID-1))
-  plt.xlabel("Row")
-  plt.ylabel("Average pixel values")
-  plt.legend(loc='best')
+  # plt.figure()
+  # plt.plot(image_rows,np.average(x_overscan_average_rows_run,axis=0),'r',label="X overscan")
+  # plt.plot(image_rows,np.average(image_average_rows_run,axis=0),'b', label="Image")
+  # plt.title("Average of overscan/image by row (all extensions)\n For runIDs "+ str(start_runID)+"-"+str(end_runID-1))
+  # plt.xlabel("Row")
+  # plt.ylabel("Average pixel values")
+  # plt.legend(loc='best')
   
   # plt.figure()
   # plt.plot(overscan_rows,np.average(y_overscan_average_rows_ext,axis=0),'b', label="Y overscan")
@@ -406,7 +407,7 @@ if __name__=="__main__":
   plt.title("Dark Current by RunID")
   plt.xlabel("RunID")
   plt.ylabel("DC (ADU)")
-  plt.xticks(x,[str(y).zfill(4) for y in runs],rotation=-60)
+  plt.xticks(x,[str(y).zfill(4) for y in runs],rotation=-90)
   labels=["Ext 1", "Ext 2", "Ext 3", "Ext 4", "Ext 6", "Ext 11", "Ext 12"]
   for clean in clean_loops:
     if clean in runs:
@@ -449,6 +450,14 @@ if __name__=="__main__":
         lines.append(line)
         labels.append("LED Exposure")
 
+  for warmup in warmups:
+    if warmup in runs:
+      line_x=x[np.argwhere(runs==warmup)[0][0]]-.5
+      line=plt.axvline(line_x,color='c',linewidth=2, linestyle='dashed')
+      if "Temp Cycle"not in labels:
+        lines.append(line)
+        labels.append("Temp Cycle")
+
   plt.ylim(ymin=0)
   plt.yscale('log')
   plt.legend(lines,labels ,loc='best')
@@ -456,6 +465,10 @@ if __name__=="__main__":
   #Show labels on both sides
   ax=plt.gca()
   ax.tick_params(labelright=True)
+  ax.yaxis.grid(True)
+  if len(x) > 30:
+    #Only show every other label (too cluttered otherwise)
+    plt.setp(ax.get_xticklabels()[1::2],visible=False) 
   
   # for i, extension in enumerate(extensions):
     
