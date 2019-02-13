@@ -123,8 +123,8 @@ if __name__=="__main__":
     out_directory=os.path.dirname(fname)
     out_directory+="/"+args.out_dir
   if not os.path.isdir(out_directory):
-    eprint("Error, directory for saving PDFs not found, exiting...")
-    sys.exit(1)
+    eprint("Warning, directory for saving PDFs not found, not making plots")
+    out_directory=None
     
 
     
@@ -190,38 +190,40 @@ if __name__=="__main__":
   plt.ioff()
   
   figures=[]
-  outfname=out_directory + "/plots_"+str(runID)+".pdf"
-  pdf = be_pdf.PdfPages(outfname)
 
-  for i, extension in enumerate(extensions):
+  if out_directory is not None:
+    outfname=out_directory + "/plots_"+str(runID)+".pdf"
+    pdf = be_pdf.PdfPages(outfname)
+
+    for i, extension in enumerate(extensions):
     
-    fig=plt.figure()
-    plt.plot(image_columns,y_overscan_average_columns_ext[i],'r',label="Y overscan")
-    plt.plot(image_columns,image_average_columns_ext[i],'b',label="Image")
-    #plt.plot(image_columns, image_y_overscan_residual_ext[i], 'b', label="Residual")
-    plt.title("Image and y_overscan by column for extension" +str(extension)+ " for runID " + str(runID))
-    plt.xlabel("Column")
-    plt.ylabel("Average pixel value")
-    #Set range to a resonable value to exclude most charge
-    ymax=max(np.percentile(y_overscan_average_columns_ext[i],90),np.percentile(image_average_columns_ext[i],90))
-    ymin=min(np.percentile(y_overscan_average_columns_ext[i],5), np.percentile(image_average_columns_ext[i],5))
-    plt.ylim(ymin=ymin-50,ymax=ymax+100)    
-    plt.legend(loc='best')
-    pdf.savefig(fig)
-    
-    fig=plt.figure()
-    plt.plot(image_rows,x_overscan_average_rows_ext[i],'r',label="X overscan")
-    plt.plot(image_rows,image_average_rows_ext[i],'b', label="Image")
-    plt.title("Average of overscan/image by row for extension" +str(extension)+ " for runID " + str(runID))
-    plt.xlabel("Row")
-    plt.ylabel("Average pixel values")
-    ymax=max(np.percentile(x_overscan_average_rows_ext[i],90), np.percentile(image_average_rows_ext[i],90))
-    ymin=min(np.percentile(x_overscan_average_rows_ext[i],5), np.percentile(image_average_rows_ext[i],5))
-    plt.ylim(ymin=ymin-50,ymax=ymax+100)
-    plt.legend(loc='best')
-    pdf.savefig(fig)
+      fig=plt.figure()
+      plt.plot(image_columns,y_overscan_average_columns_ext[i],'r',label="Y overscan")
+      plt.plot(image_columns,image_average_columns_ext[i],'b',label="Image")
+      #plt.plot(image_columns, image_y_overscan_residual_ext[i], 'b', label="Residual")
+      plt.title("Image and y_overscan by column for extension" +str(extension)+ " for runID " + str(runID))
+      plt.xlabel("Column")
+      plt.ylabel("Average pixel value")
+      #Set range to a resonable value to exclude most charge
+      ymax=max(np.percentile(y_overscan_average_columns_ext[i],90),np.percentile(image_average_columns_ext[i],90))
+      ymin=min(np.percentile(y_overscan_average_columns_ext[i],5), np.percentile(image_average_columns_ext[i],5))
+      plt.ylim(ymin=ymin-50,ymax=ymax+100)    
+      plt.legend(loc='best')
+      pdf.savefig(fig)
       
-  pdf.close()
+      fig=plt.figure()
+      plt.plot(image_rows,x_overscan_average_rows_ext[i],'r',label="X overscan")
+      plt.plot(image_rows,image_average_rows_ext[i],'b', label="Image")
+      plt.title("Average of overscan/image by row for extension" +str(extension)+ " for runID " + str(runID))
+      plt.xlabel("Row")
+      plt.ylabel("Average pixel values")
+      ymax=max(np.percentile(x_overscan_average_rows_ext[i],90), np.percentile(image_average_rows_ext[i],90))
+      ymin=min(np.percentile(x_overscan_average_rows_ext[i],5), np.percentile(image_average_rows_ext[i],5))
+      plt.ylim(ymin=ymin-50,ymax=ymax+100)
+      plt.legend(loc='best')
+      pdf.savefig(fig)
+      
+    pdf.close()
 
   if send_to_database and influx_script is not None:
     if not os.path.isfile(influx_script):
